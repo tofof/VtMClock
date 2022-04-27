@@ -2,6 +2,8 @@
 
 /*******Interrupt-based Rotary Encoder Sketch*******
 by Simon Merrett, based on insight from Oleg Mazurov, Nick Gammon, rt, Steve Spence
+https://www.instructables.com/Improved-Arduino-Rotary-Encoder-Reading/
+https://web.archive.org/web/20211022232828/https://www.instructables.com/Improved-Arduino-Rotary-Encoder-Reading/
 */
 
 const static int pinA = 2; // Our first hardware interrupt pin is digital pin 2
@@ -10,10 +12,7 @@ volatile byte aFlag = 0; // lets us know when we're expecting a rising edge on p
 volatile byte bFlag = 0; // lets us know when we're expecting a rising edge on pinB to signal that the encoder has arrived at a detent (opposite direction to when aFlag is set)
 volatile byte encoderPos = 0; //this variable stores our current value of encoder position. Change to int or uin16_t instead of byte if you want to record a larger range than 0-255
 volatile byte oldEncPos = 0; //stores the last encoder position value so we can compare to the current reading and see if it has changed (so we know when to print to the serial monitor)
-volatile int stateA = 0; //somewhere to store the raw value we read off the pin
-volatile int stateB = 0;
 volatile uint32_t reading = 0;
-
 const static EPortType port = g_APinDescription[pinA].ulPort;
 const static uint32_t pinMaskA = digitalPinToBitMask(pinA);
 const static uint32_t pinMaskB = digitalPinToBitMask(pinB);
