@@ -29,8 +29,6 @@ void aIRQ(), bIRQ(), buttonIRQ(); //forward declaration for interrupt processing
 const int buttonPin = 2; // the number of the pushbutton pin
 const int ledPin =  13; // the number of the LED pin
 const static uint32_t pinMaskButton = digitalPinToBitMask(buttonPin);
-const static uint32_t pinMaskLED = digitalPinToBitMask(ledPin);
-volatile byte buttonState = 0;
 
 //7-segment display
 const static int clkPin = 4, dioPin = 5; //signal pins for the digit display
@@ -44,9 +42,9 @@ void setup() {
 
   pinMode(ledPin, OUTPUT); //testing pushbutton
   pinMode(buttonPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(buttonPin),buttonIRQ,CHANGE);
+  attachInterrupt(digitalPinToInterrupt(buttonPin),buttonIRQ,FALLING);
 
-  tm.set(7); //7-segment brightness (0-7)
+  tm.set(2); //7-segment brightness (0-7)
   Serial.begin(115200);
 }
 
@@ -70,16 +68,16 @@ void displayTimeMMSS(int secondsElapsed) {
     tm.display(0, minutes / 10 % 10);
 }
 
-//display hours:minutes based on elapsed minutes; will display 00 hours for elapsed time, or use range 60-779 to correspond to 1:00-12:59 for valid clock times
-void displayTimeHHMM(int minutesElapsed) {
+//display hours:minutes based on elapsed minutes; will display 0 hours for elapsed time, or use range 60-779 to correspond to 1:00-12:59 for valid clock times
+void displayTimeHMM(int minutesElapsed) {
     int hours = minutesElapsed / 60;
     int minutes = minutesElapsed % 60;
 
     tm.point(1); //colon
-    tm.display(3, minutes % 10);
-    tm.display(2, minutes / 10 % 10);
+    if (hours / 10 % 10 == 1) tm.display(0, hours / 10 % 10);
     tm.display(1, hours % 10);
-    tm.display(0, hours / 10 % 10);
+    tm.display(2, minutes / 10 % 10);
+    tm.display(3, minutes % 10);
 }
 
 //interrupt handler
@@ -112,13 +110,14 @@ void bIRQ() {
 
 void buttonIRQ() {
   noInterrupts(); 
-  buttonState = (PORT->Group[port].IN.reg & pinMaskButton) == pinMaskButton;
+  encoderPos = 78; //reset time
   interrupts();
 }
 
 void loop() {
   if(oldEncPos != encoderPos) {
     Serial.println(encoderPos);
+    if (oldEncPos >= 120 && encoderPos < 120) tm.clearDisplay(); //drop the first digit if we transitioned from >10:00 to <=9:59
     oldEncPos = encoderPos;
     if(encoderPos >= 156) { //156*5=780 minutes i.e. 13 hours
       encoderPos=12;  //display 13:00 time as 1:00, i.e. (1*60+0)/5=12
@@ -128,13 +127,5 @@ void loop() {
     }
   }
 
-  if (buttonState)  
-      PORT->Group[port].OUTSET.reg = pinMaskLED;
-   else     
-      PORT->Group[port].OUTCLR.reg = pinMaskLED;
-
-  
-   
-
-  displayTimeHHMM(encoderPos*5);  //each detent is 5 minutes
+  displayTimeHMM(encoderPos*5);  //each detent is 5 minutes
 }
