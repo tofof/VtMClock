@@ -12,7 +12,14 @@ volatile byte encoderPos = 0; //this variable stores our current value of encode
 volatile byte oldEncPos = 0; //stores the last encoder position value so we can compare to the current reading and see if it has changed (so we know when to print to the serial monitor)
 volatile int stateA = 0; //somewhere to store the raw value we read off the pin
 volatile int stateB = 0;
+volatile uint32_t reading = 0;
 
+const static EPortType port = g_APinDescription[pinA].ulPort;
+const static uint32_t pinMaskA = digitalPinToBitMask(pinA);
+const static uint32_t pinMaskB = digitalPinToBitMask(pinB);
+const static uint32_t pinMaskAB = pinMaskA + pinMaskB;
+
+//forward declarations
 void PinA();
 void PinB();
 
@@ -21,32 +28,34 @@ void setup() {
   pinMode(pinB, INPUT_PULLUP); // set pinB as an input, pulled HIGH to the logic voltage (5V or 3.3V for most cases)
   attachInterrupt(digitalPinToInterrupt(pinA),PinA,RISING); // set an interrupt on PinA, looking for a rising edge signal and executing the "PinA" Interrupt Service Routine (below)
   attachInterrupt(digitalPinToInterrupt(pinB),PinB,RISING); // set an interrupt on PinB, looking for a rising edge signal and executing the "PinB" Interrupt Service Routine (below)
-  Serial.begin(115200); // start the serial monitor link
+  Serial.begin(115200); // start the serial monitor link 
 }
 
 void PinA(){
   noInterrupts(); //stop interrupts happening before we read pin values
-  stateA = digitalRead(pinA);
-  stateB = digitalRead(pinB);
-  if(stateA == HIGH && stateB == HIGH) { //check that we have both pins at detent (HIGH) and that we are expecting detent on this pin's rising edge
+  reading = PORT->Group[port].IN.reg & pinMaskAB;
+  if(reading == pinMaskAB && aFlag) { //check that we have both pins at detent (HIGH) and that we are expecting detent on this pin's rising edge
     encoderPos --; //decrement the encoder's position count
     bFlag = 0; //reset flags for the next turn
     aFlag = 0; //reset flags for the next turn
   }
-  else if (stateA == HIGH && stateB == LOW) bFlag = 1; //signal that we're expecting pinB to signal the transition to detent from free rotation
+  else if (reading == pinMaskA) {
+    bFlag = 1; //signal that we're expecting pinB to signal the transition to detent from free rotation
+  } 
   interrupts(); //restart interrupts
 }
 
 void PinB(){
   noInterrupts(); //stop interrupts happening before we read pin values
-  stateA = digitalRead(pinA);
-  stateB = digitalRead(pinB);
-  if (stateA == HIGH && stateB == HIGH && bFlag) { //check that we have both pins at detent (HIGH) and that we are expecting detent on this pin's rising edge
+  reading = PORT->Group[port].IN.reg & pinMaskAB;
+  if (reading == pinMaskAB && bFlag) { //check that we have both pins at detent (HIGH) and that we are expecting detent on this pin's rising edge
     encoderPos ++; //increment the encoder's position count
     bFlag = 0; //reset flags for the next turn
     aFlag = 0; //reset flags for the next turn
   }
-  else if (stateA == LOW && stateB == HIGH) aFlag = 1; //signal that we're expecting pinA to signal the transition to detent from free rotation
+  else if (reading == pinMaskB) {
+    aFlag = 1; //signal that we're expecting pinA to signal the transition to detent from free rotation
+  } 
   interrupts(); //restart interrupts
 }
 
@@ -55,4 +64,5 @@ void loop(){
     Serial.println(encoderPos);
     oldEncPos = encoderPos;
   }
+  
 }
