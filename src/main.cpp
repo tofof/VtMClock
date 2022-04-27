@@ -45,6 +45,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(buttonPin),buttonIRQ,FALLING);
 
   tm.set(2); //7-segment brightness (0-7)
+  tm.clearDisplay();
   Serial.begin(115200);
 }
 
