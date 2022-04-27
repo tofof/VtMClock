@@ -29,20 +29,21 @@ void aIRQ(), bIRQ(), buttonIRQ(); //forward declaration for interrupt processing
 const int buttonPin = 2; // the number of the pushbutton pin
 const int ledPin =  13; // the number of the LED pin
 const static uint32_t pinMaskButton = digitalPinToBitMask(buttonPin);
-volatile uint32_t buttonState = 0;
+const static uint32_t pinMaskLED = digitalPinToBitMask(ledPin);
+volatile byte buttonState = 0;
 
 //7-segment display
 const static int clkPin = 4, dioPin = 5; //signal pins for the digit display
 TM1637 tm(clkPin,dioPin); //using the library for the 7-segment display
 
 void setup() {
-  pinMode(aPin, INPUT_PULLUP); // set pinA as an input, pulled HIGH to the logic voltage (3V3 in our case) so that no additional voltage needs to be supplied to the encoder
-  pinMode(bPin, INPUT_PULLUP); 
+  pinMode(aPin, INPUT); // set pinA as an input.    In theory, INPUT_PULLUP should provide all the voltage we need but in actuality, at least for this encoder (with built-in resistors etc), supplying 3.3v directly to the + pin is required for the encoder to work properly
+  pinMode(bPin, INPUT); 
   attachInterrupt(digitalPinToInterrupt(aPin),aIRQ,RISING); // set an interrupt on pinA, looking for a rising edge signal and executing the "PinA" Interrupt Service Routine 
   attachInterrupt(digitalPinToInterrupt(bPin),bIRQ,RISING);
 
   pinMode(ledPin, OUTPUT); //testing pushbutton
-  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(buttonPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(buttonPin),buttonIRQ,CHANGE);
 
   tm.set(7); //7-segment brightness (0-7)
@@ -127,12 +128,13 @@ void loop() {
     }
   }
 
-  if(buttonState == HIGH) {
-    digitalWrite(ledPin, HIGH);
-  }
-  else {
-    digitalWrite(ledPin, LOW);
-  }
+  if (buttonState)  
+      PORT->Group[port].OUTSET.reg = pinMaskLED;
+   else     
+      PORT->Group[port].OUTCLR.reg = pinMaskLED;
+
+  
+   
 
   displayTimeHHMM(encoderPos*5);  //each detent is 5 minutes
 }
