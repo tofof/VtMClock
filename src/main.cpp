@@ -19,6 +19,7 @@ https://web.archive.org/web/20220111231154/https://create.arduino.cc/projecthub/
 const static int aPin = 0, bPin = 1; // hardware interrupt pins for the rotary encoder
 volatile byte aFlag = 0, bFlag = 0; // true when expecting a rising edge on corresponding pin to signal encoder arrived at detent (one is true depending on direction)
 volatile byte encoderPos = 78, oldEncPos = 0; //value of current and previous encoder positions, 0-255 range is adequate for the 20-position encoder we're using, 78 will correspond to 06:30 on the clock
+volatile uint16_t timer = 0; //reset display every so often to clear first digit being stuck by transient error
 volatile uint32_t reading = 0; // holds raw read from the port register (more performant than directRead)
 const static EPortType port = g_APinDescription[aPin].ulPort; //pinB needs to be on the same port, verify this by checking if the returned porttypes are equal if changing pins
 const static uint32_t pinMaskA = digitalPinToBitMask(aPin), pinMaskB = digitalPinToBitMask(bPin); //bitmasks for port register for the pins of interest
@@ -116,8 +117,9 @@ void buttonIRQ() {
 }
 
 void loop() {
+  if(!(timer++&1023)) tm.clearDisplay();  //clear first digit of transient errors every 10ish seconds
   if(oldEncPos != encoderPos) {
-    Serial.println(encoderPos);
+    //Serial.println(encoderPos);
     if (oldEncPos >= 120 && encoderPos < 120) tm.clearDisplay(); //drop the first digit if we transitioned from >10:00 to <=9:59
     oldEncPos = encoderPos;
     if(encoderPos >= 156) { //156*5=780 minutes i.e. 13 hours
