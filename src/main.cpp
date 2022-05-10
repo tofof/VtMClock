@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <TM1637.h>
+#include <TM1637.h>   //this was a poor choice of library, for future projects use TM1637 Driver (https://github.com/AKJ7/TM1637) or SevenSegmentTM1637 (https://github.com/bremme/arduino-tm1637) which support arbitrary ascii text, scrolling, and more.
 
 /*
 Interrupt-based Rotary Encoder Sketch
@@ -18,8 +18,7 @@ https://web.archive.org/web/20220111231154/https://create.arduino.cc/projecthub/
 //rotary encoder
 const static int aPin = 0, bPin = 1; // hardware interrupt pins for the rotary encoder
 volatile byte aFlag = 0, bFlag = 0; // true when expecting a rising edge on corresponding pin to signal encoder arrived at detent (one is true depending on direction)
-volatile byte encoderPos = 78, oldEncPos = 0; //value of current and previous encoder positions, 0-255 range is adequate for the 20-position encoder we're using, 78 will correspond to 06:30 on the clock
-volatile uint16_t timer = 0; //reset display every so often to clear first digit being stuck by transient error
+volatile byte encoderPos = 78; //value of current and previous encoder positions, 0-255 range is adequate for the 20-position encoder we're using, 78 will correspond to 06:30 on the clock
 volatile uint32_t reading = 0; // holds raw read from the port register (more performant than directRead)
 const static EPortType port = g_APinDescription[aPin].ulPort; //pinB needs to be on the same port, verify this by checking if the returned porttypes are equal if changing pins
 const static uint32_t pinMaskA = digitalPinToBitMask(aPin), pinMaskB = digitalPinToBitMask(bPin); //bitmasks for port register for the pins of interest
@@ -76,7 +75,7 @@ void displayTimeHMM(int minutesElapsed) {
     int minutes = minutesElapsed % 60;
 
     tm.point(1); //colon
-    if (hours / 10 % 10 == 1) tm.display(0, hours / 10 % 10);
+    tm.display(0, (hours / 10 % 10) ? hours / 10 % 10 : 0x7f); //blank leading digit if unneeded
     tm.display(1, hours % 10);
     tm.display(2, minutes / 10 % 10);
     tm.display(3, minutes % 10);
@@ -112,23 +111,16 @@ void bIRQ() {
 
 void buttonIRQ() {
   noInterrupts(); 
-  encoderPos = 78; //reset time
+  encoderPos = 78; //reset time to 6:30
   interrupts();
 }
 
 void loop() {
-  if(!(timer++&1023)) tm.clearDisplay();  //clear first digit of transient errors every 10ish seconds
-  if(oldEncPos != encoderPos) {
-    //Serial.println(encoderPos);
-    if (oldEncPos >= 120 && encoderPos < 120) tm.clearDisplay(); //drop the first digit if we transitioned from >10:00 to <=9:59
-    oldEncPos = encoderPos;
-    if(encoderPos >= 156) { //156*5=780 minutes i.e. 13 hours
-      encoderPos=12;  //display 13:00 time as 1:00, i.e. (1*60+0)/5=12
-    }
-    if(encoderPos <=11) { //11*5=55 minutes i.e. less than 1 hour
-      encoderPos=155; //display 00:55 time as 12:55, i.e. (12*60+55)/5=155
-    }
+  if(encoderPos >= 156) { //156*5=780 minutes i.e. 13 hours
+    encoderPos=12;  //display 13:00 time wrapped to 1:00, i.e. (1*60+0)/5=12
   }
-
+  if(encoderPos <=11) { //11*5=55 minutes i.e. less than 1 hour
+    encoderPos=155; //display 00:55 time wrapped to 12:55, i.e. (12*60+55)/5=155
+  }
   displayTimeHMM(encoderPos*5);  //each detent is 5 minutes
 }
